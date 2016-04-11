@@ -524,6 +524,19 @@ FILE_OPTIONS = {
                    help='Location of Single Sign-On callback handler, will '
                         'return a token to a trusted dashboard host.'),
     ],
+    'simplefederation': [
+        cfg.MultiStrOpt('idp', default=[],
+                        help='A list of trusted idp hosts with username '
+                             'and password needed for the token validation '
+                             '(this means usually admin role for the user). '
+                             'This configuration '
+                             'option may be repeated for multiple values. '
+                             'For example: '
+                             'idp='
+                             'http://user1:passwd1@idp1.provider1.test:35357 '
+                             'idp='
+                             'http://user2:passwd2@idp2.provider2.test:35357'),
+    ],
     'policy': [
         cfg.StrOpt('driver',
                    default='keystone.policy.backends.sql.Policy',

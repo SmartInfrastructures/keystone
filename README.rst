@@ -2,6 +2,19 @@
 OpenStack Keystone
 ==================
 
+.. note:: Experimental Branch
+
+    This is an experimental branch to explore some simple federation
+    protocols.
+
+    See the documentation at ``doc/source/simplefederation.rst``
+
+
+.. warning:: Possible rebase
+
+    Be aware that this branch could be rebased at any time.
+
+
 Keystone provides authentication, authorization and service discovery
 mechanisms via HTTP primarily for use by projects in the OpenStack family. It
 is most commonly deployed as an HTTP interface to existing identity systems,

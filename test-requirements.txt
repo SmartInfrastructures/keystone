@@ -48,3 +48,11 @@ oslosphinx<2.6.0,>=2.5.0 # Apache-2.0
 
 tempest-lib<0.5.0,>=0.4.0
 
+# Requests Mock
+requests_mock
+
+# Interactive debugging (not enabled, causes failure on devstack
+# E:   File "update.py", line 266, in _do_main
+# O: 'trepan' is not in global-requirements.txt
+# trepan
+# ipdb

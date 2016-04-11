@@ -18,6 +18,13 @@
 Welcome to Keystone, the OpenStack Identity Service!
 ====================================================
 
+.. note:: Experimental Branch
+
+    This is an experimental branch to explore some simple federation
+    protocols.
+
+    See the documentation at :ref:`simplefederation-label`.
+
 Keystone is an OpenStack project that provides Identity, Token, Catalog and
 Policy services for use specifically by projects in the OpenStack family.
 It implements `OpenStack's Identity API`_.
@@ -55,6 +62,7 @@ Getting Started
     extensions
     key_terms
     community
+    simplefederation
 
 Man Pages
 =========

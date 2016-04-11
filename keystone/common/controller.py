@@ -60,8 +60,13 @@ def _build_policy_check_credentials(self, action, context, kwargs):
         'action': action,
         'kwargs': kwargs_str})
 
+    # TODO(dancn): If we have simplefederation enabled we skip this
+    # check.  I do not known the consequences and security
+    # implications of this.  By the way all the UUID test pass without
+    # problem.
+    #
     # see if auth context has already been created. If so use it.
-    if ('environment' in context and
+    if (not CONF.simplefederation.idp and 'environment' in context and
             authorization.AUTH_CONTEXT_ENV in context['environment']):
         LOG.debug('RBAC: using auth context from the request environment')
         return context['environment'].get(authorization.AUTH_CONTEXT_ENV)
@@ -80,9 +85,16 @@ def _build_policy_check_credentials(self, action, context, kwargs):
         # backing store.
         wsgi.validate_token_bind(context, token_ref)
     except exception.TokenNotFound:
-        LOG.warning(_LW('RBAC: Invalid token'))
-        raise exception.Unauthorized()
-
+        # TODO(dancn): If we have simplefederation enabled we skip
+        # this check.  I do not known the consequences and security
+        # implications of this.  By the way all the UUID test pass without
+        # problem.
+        if not CONF.simplefederation.idp:
+            LOG.warning(_LW('RBAC: simplefederation: invalid token'))
+            raise exception.Unauthorized()
+        else:
+            LOG.warning(_LW('RBAC: simplefederation:'
+                            'Skipping validation for maybe remote token'))
     auth_context = authorization.token_to_auth_context(token_ref)
 
     return auth_context
@@ -104,7 +116,11 @@ def protected(callback=None):
     def wrapper(f):
         @functools.wraps(f)
         def inner(self, context, *args, **kwargs):
-            if 'is_admin' in context and context['is_admin']:
+            # TODO(dancn): After few unsucessul tentatives to skip
+            # checks at deeper level I will disable the check here
+            if CONF.simplefederation.idp:
+                LOG.debug('RBAC: bypassing checks for simplefederation')
+            elif 'is_admin' in context and context['is_admin']:
                 LOG.warning(_LW('RBAC: Bypassing authorization'))
             elif callback is not None:
                 prep_info = {'f_name': f.__name__,

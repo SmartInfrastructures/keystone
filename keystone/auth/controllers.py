@@ -12,8 +12,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import requests
 import sys
 
+from keystoneclient import client
 from keystoneclient.common import cms
 from oslo_config import cfg
 from oslo_log import log
@@ -515,8 +517,29 @@ class Auth(controller.V3Controller):
     @controller.protected()
     def check_token(self, context):
         token_id = context.get('subject_token_id')
-        token_data = self.token_provider_api.validate_v3_token(
-            token_id)
+        token_data = None
+        try:
+            token_data = self.token_provider_api.validate_v3_token(
+                token_id)
+        except exception.TokenNotFound as e:
+            LOG.debug('simplefederation: not found on local')
+            LOG.exception(six.text_type(e))
+            for idp in CONF.simplefederation.idp:
+                try:
+                    LOG.info('simplefederation: trying to validate the token'
+                             ' on remote idp: %s', idp)
+                    token_data = get_simplefederation_token_data(idp, token_id)
+                    LOG.info('simplefederation: token validated '
+                             ' on remote idp: %s', idp)
+                    break
+                # TODO(dancn): do not use a catchall exception
+                except Exception as e1:
+                    LOG.debug('simplefederation: not found on remote')
+                    LOG.exception(six.text_type(e1))
+        # It can be only a TokenNotFound
+        if not token_data:
+            raise exception.TokenNotFound(token_id=token_id)
+
         # NOTE(morganfainberg): The code in
         # ``keystone.common.wsgi.render_response`` will remove the content
         # body.
@@ -531,8 +554,31 @@ class Auth(controller.V3Controller):
     def validate_token(self, context):
         token_id = context.get('subject_token_id')
         include_catalog = 'nocatalog' not in context['query_string']
-        token_data = self.token_provider_api.validate_v3_token(
-            token_id)
+        token_data = None
+        # TODO(dancn): this is really a duplicate of check_token,
+        # re-factor as soon as possible!
+        try:
+            token_data = self.token_provider_api.validate_v3_token(
+                token_id)
+        except exception.TokenNotFound as e:
+            LOG.debug('simplefederation: not found on local')
+            LOG.exception(six.text_type(e))
+            for idp in CONF.simplefederation.idp:
+                try:
+                    LOG.info('simplefederation: trying to validate the token'
+                             ' on remote idp: %s', idp)
+                    token_data = get_simplefederation_token_data(idp, token_id)
+                    LOG.info('simplefederation: token validated '
+                             ' on remote idp: %s', idp)
+                    break
+                # TODO(dancn): do not use a catchall exception
+                except Exception as e1:
+                    LOG.debug('simplefederation: not found on remote')
+                    LOG.exception(six.text_type(e1))
+        # It can be only a TokenNotFound
+        if not token_data:
+            raise exception.TokenNotFound(token_id=token_id)
+
         if not include_catalog and 'catalog' in token_data['token']:
             del token_data['token']['catalog']
         return render_token_data_response(token_id, token_data)
@@ -626,6 +672,75 @@ class Auth(controller.V3Controller):
             'catalog': self.catalog_api.get_v3_catalog(user_id, project_id),
             'links': {'self': self.base_url(context, path='auth/catalog')}
         }
+
+
+# TODO(dancn): not sure if it belongs here or keystone.common. Park it
+# here for now.
+def get_simplefederation_token_data(idp, token_id):
+    try:
+        # TODO(dancn): use keystone client to get all token data
+        # from keystoneclient import client
+
+        # FIXME(dancn): we need to be somewhat authenticate on the
+        # remote keystone, use a fake idp service See the doc about
+        # remote idp user.
+
+        # FIXME(dancn): split into separate function, the try is for
+        # passing the test...
+        try:
+            full_url = requests.utils.urlparse(idp)
+            base_url = '%(scheme)s://%(hostname)s:%(port)s' % \
+                {
+                    'scheme': full_url.scheme,
+                    'hostname': full_url.hostname,
+                    'port': full_url.port
+                }
+
+            auth_url = base_url + '/v3'
+
+            LOG.debug('simplefederation: auth url: %(auth_url)s',
+                      {'auth_url': auth_url})
+
+            ks = client.Client(auth_url=auth_url,
+                               version=(3,),
+                               username=full_url.username,
+                               password=full_url.password)
+            ks.authenticate()
+            auth_token = ks.get_token(ks)
+        except Exception as e1:
+            LOG.debug('simplefederation: error in auth token')
+            LOG.exception(six.text_type(e1))
+            auth_token = ''
+
+        LOG.debug('simplefederation: auth token: %(auth_token)s',
+                  {'auth_token': auth_token})
+
+        headers = {'X-Subject-Token': token_id}
+        headers['X-Auth-Token'] = auth_token
+
+        # TODO(dancn): this dynamic log configuration does not seem to
+        # work
+        ll = log.logging.getLogger('requests').getEffectiveLevel()
+        log.logging.getLogger('requests').setLevel(log.logging.DEBUG)
+        response = requests.get(idp + '/v3/auth/tokens', headers=headers)
+        log.logging.getLogger('requests').setLevel(ll)
+        token_data = response.content
+
+        LOG.debug(
+            'simplefederation: Remote response: %(response)s',
+            {'response': response.headers}
+        )
+        LOG.debug(
+            'simplefederation: Remote response: %(response)s',
+            {'response': response.content}
+        )
+
+        return jsonutils.loads(token_data)
+
+    except Exception as e:
+        LOG.debug('simplefederation: general problem with remote')
+        LOG.exception(six.text_type(e))
+        raise exception.TokenNotFound(token_id=token_id)
 
 
 # FIXME(gyee): not sure if it belongs here or keystone.common. Park it here

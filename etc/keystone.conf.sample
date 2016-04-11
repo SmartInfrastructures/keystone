@@ -1647,6 +1647,20 @@
 #cert_subject = /C=US/ST=Unset/L=Unset/O=Unset/CN=www.example.com
 
 
+[simplefederation]
+
+#
+# From keystone
+#
+
+# A list of trusted idp hosts with username and password needed for the token
+# validation (this means usually admin role for the user). This configuration
+# option may be repeated for multiple values. For example:
+# idp=http://user1:passwd1@idp1.provider1.test:35357
+# idp=http://user2:passwd2@idp2.provider2.test:35357 (multi valued)
+#idp =
+
+
 [ssl]
 
 #

@@ -454,6 +454,8 @@ class RestfulTestCase(tests.SQLDriverOverrides, rest.RestfulTestCase,
         else:
             token = kwargs.pop('token', None)
             if not token:
+                # TODO(dancn): are we sure that this works in the
+                # real?  Do I am missing something here?
                 token = self.get_scoped_token()
         path = '/v3' + path
 
